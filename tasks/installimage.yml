@@ -13,45 +13,101 @@
 
 - name: run installimage
   command: /root/.oldroot/nfs/install/installimage -K /root/tmpKey
+  environment:
+    TERM: xterm-256color
   register: result
 
-- name: do another hardware reset
-  local_action:
-    module: uri
-    url: "https://robot-ws.your-server.de/reset/{{ ansible_host }}"
-    method: POST
-    user: "{{ hetzner_installimage_webservice_username }}"
-    password: "{{ hetzner_installimage_webservice_password }}"
-    force_basic_auth: yes
-    body: "type=hw"
-    status_code: 200
-    headers:
-      Content-Type: "application/x-www-form-urlencoded"
-  register: reset
+- name: do reboot host
+  reboot:
 
 - name: remove server from local known_hosts file
-  local_action: shell ssh-keygen -R {{ ansible_host }}
-
-- name: pause a bit for the reboot to kick in
-  pause: seconds=60
-
-- name: waiting for server to come back
-  local_action:
-    module: wait_for
-    host: "{{ ansible_host }}"
-    port: 22
-    delay: 1
-    timeout: 180
+  local_action: shell ssh-keygen -R {{ ansible_default_ipv4.address }}
+  when: hetzner_installimage_purge_ssh_known_hosts
 
 - name: update apt
-  raw: apt-get update
+  raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get update'
+  retries: 3
+  delay: 10
+  register: result
+  until: result.rc == 0
+  args:
+    executable: /bin/bash
+  when: ansible_os_family == 'Debian'
 
 - name: install python on remote host
-  raw: apt-get install python -y
+  raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get install python -y'
+  retries: 3
+  delay: 10
+  register: result
+  until: result.rc == 0
+  args:
+    executable: /bin/bash
+  when: ansible_os_family == 'Debian'
+
+- name: upgrade apt
+  raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get upgrade -y'
+  retries: 3
+  delay: 10
+  register: result
+  until: result.rc == 0
+  args:
+    executable: /bin/bash
+  when: ansible_os_family == 'Debian'
+
+- name: update grub config
+  replace:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX="(.*)"'
+    replace: 'GRUB_CMDLINE_LINUX="\1 biosdevname=0 net.ifnames=0"'
+  when: ansible_os_family == 'Debian'
+
+- name: update grub
+  raw: update-grub
+  args:
+    executable: /bin/bash
+  when: ansible_os_family == 'Debian'
+
+- name: find netplan config
+  find:
+    paths: '/etc/netplan'
+    depth: 1
+  register: find_result
+  when: ansible_os_family == 'Debian'
+
+- name: check current name network interface
+  shell: 'ip addr show | grep "^2" | sed -r "s/^2:\s+(.+):.+$/\1/"'
+  args:
+    executable: /bin/bash
+  register: netplan_interface
+  when: ansible_os_family == 'Debian'
+
+- name: fix netplan config
+  replace:
+    path: "{{ item.path }}"
+    regexp: "{{ netplan_interface.stdout | replace('\n', '') | replace('\r', '') }}"
+    replace: 'eth0'
+  with_items: "{{ find_result.files }}"
+  when: ansible_os_family == 'Debian'
+
+- name: install python on remote host
+  raw: yum install python -y
+  retries: 3
+  delay: 10
+  register: result
+  until: result.rc == 0
+  when: ansible_os_family == 'RedHat'
+
+- name: update yum
+  raw: yum update -y
+  retries: 3
+  delay: 10
+  register: result
+  until: result.rc == 0
+  when: ansible_os_family == 'RedHat'
 
 - name: generate hostcode
   set_fact:
-    _hostcode: "{{ ansible_host | md5 }}"
+    _hostcode: "{{ ansible_fqdn | md5 }}"
 
 - name: create hostcode file
   template:
@@ -61,17 +117,31 @@
     group: root
     mode: 0644
 
-- name: set the server_name
+- name: do final reboot host
+  reboot:
+
+- name: "set the server_name equal {{ hetzner_server_name }}"
   local_action:
     module: uri
-    url: "https://robot-ws.your-server.de/server/{{ ansible_host }}"
+    url: "https://robot-ws.your-server.de/server/{{ ansible_default_ipv4.address }}"
     method: POST
     user: "{{ hetzner_installimage_webservice_username }}"
     password: "{{ hetzner_installimage_webservice_password }}"
     force_basic_auth: yes
     body: "server_name={{ hetzner_server_name }}"
     status_code: 200
-  register: hetzner_installimage_rescue
+  when: hetzner_server_name is defined
+
+- name: "set PTR record equal {{ hetzner_server_name }}"
+  local_action:
+    module: uri
+    url: "https://robot-ws.your-server.de/rdns/{{ ansible_default_ipv4.address }}"
+    method: POST
+    user: "{{ hetzner_installimage_webservice_username }}"
+    password: "{{ hetzner_installimage_webservice_password }}"
+    force_basic_auth: yes
+    body: "ptr={{ hetzner_server_name }}"
+    status_code: 200
   when: hetzner_server_name is defined
 
 ...

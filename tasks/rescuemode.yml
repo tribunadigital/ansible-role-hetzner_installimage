@@ -1,10 +1,8 @@
 ---
-
-
 - name: activate rescue mode
   local_action:
     module: uri
-    url: "https://robot-ws.your-server.de/boot/{{ ansible_host }}/rescue"
+    url: "https://robot-ws.your-server.de/boot/{{ ansible_default_ipv4.address }}/rescue"
     method: POST
     user: "{{ hetzner_installimage_webservice_username }}"
     password: "{{ hetzner_installimage_webservice_password }}"
@@ -13,34 +11,13 @@
     status_code: 200
     headers:
       Content-Type: "application/x-www-form-urlencoded"
-  register: activated
+  when: hetzner_installimage_rescue.json.rescue.active == false
 
-- name: Execute hardware reset
-  local_action:
-    module: uri
-    url: "https://robot-ws.your-server.de/reset/{{ ansible_host }}"
-    method: POST
-    user: "{{ hetzner_installimage_webservice_username }}"
-    password: "{{ hetzner_installimage_webservice_password }}"
-    force_basic_auth: yes
-    body: "type=hw"
-    status_code: 200
-    headers:
-      Content-Type: "application/x-www-form-urlencoded"
-  register: reset
+- name: do first reboot host
+  reboot:
 
 - name: remove server from local known_hosts file
-  local_action: shell ssh-keygen -R {{ ansible_host }}
-
-- name: pause a bit for the hardware reset to kick in
-  pause: seconds=15
-
-- name: waiting for server to come back
-  local_action:
-    module: wait_for
-    host: "{{ ansible_host }}"
-    port: 22
-    delay: 1
-    timeout: 180
+  local_action: shell ssh-keygen -R {{ ansible_default_ipv4.address }}
+  when: hetzner_installimage_purge_ssh_known_hosts
 
 ...
