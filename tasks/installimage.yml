@@ -141,7 +141,9 @@
     password: "{{ hetzner_installimage_webservice_password }}"
     force_basic_auth: yes
     body: "ptr={{ hetzner_server_name }}"
-    status_code: 200
+    status_code:
+      - 200
+      - 201
   when: hetzner_server_name is defined
 
 ...
