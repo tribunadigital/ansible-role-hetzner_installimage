@@ -19,6 +19,8 @@
 
 - name: do reboot host
   reboot:
+    post_reboot_delay: 15
+    connect_timeout: 60
 
 - name: remove server from local known_hosts file
   local_action: shell ssh-keygen -R {{ ansible_default_ipv4.address }}
@@ -119,6 +121,8 @@
 
 - name: do final reboot host
   reboot:
+    post_reboot_delay: 15
+    connect_timeout: 60
 
 - name: "set the server_name equal {{ hetzner_server_name }}"
   local_action:
