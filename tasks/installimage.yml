@@ -87,7 +87,7 @@
   replace:
     path: "{{ item.path }}"
     regexp: "{{ netplan_interface.stdout | replace('\n', '') | replace('\r', '') }}"
-    replace: 'eth0'
+    replace: "{{ hetzner_installimage_install_netplan_iface }}"
   with_items: "{{ find_result.files }}"
   when: ansible_os_family == 'Debian'
 
@@ -107,9 +107,11 @@
   until: result.rc == 0
   when: ansible_os_family == 'RedHat'
 
-- name: generate hostcode
-  set_fact:
-    _hostcode: "{{ ansible_fqdn | md5 }}"
+
+- name: Update ansible fqdn fact
+  setup:
+    filter:
+      - 'ansible_fqdn'
 
 - name: create hostcode file
   template:

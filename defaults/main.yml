@@ -16,4 +16,4 @@ hetzner_installimage_install_image: /root/.oldroot/nfs/images/Ubuntu-2004-focal-
 hetzner_installimage_purge_ssh_known_hosts: False
 # prevent reinstallation of running servers with /etc/hostcode file
 hetzner_installimage_ignore_hostcode: False
-...
+hetzner_installimage_install_netplan_iface: eth0
