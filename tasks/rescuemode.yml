@@ -1,7 +1,6 @@
 ---
 - name: activate rescue mode
-  local_action:
-    module: uri
+  ansible.builtin.uri:
     url: "https://robot-ws.your-server.de/boot/{{ ansible_default_ipv4.address }}/rescue"
     method: POST
     user: "{{ hetzner_installimage_webservice_username }}"
@@ -14,10 +13,8 @@
   when: hetzner_installimage_rescue.json.rescue.active == false
 
 - name: do first reboot host
-  reboot:
+  ansible.builtin.reboot:
 
 - name: remove server from local known_hosts file
-  local_action: shell ssh-keygen -R {{ ansible_default_ipv4.address }}
+  ansible.builtin.shell: ssh-keygen -R {{ ansible_default_ipv4.address }}
   when: hetzner_installimage_purge_ssh_known_hosts
-
-...
