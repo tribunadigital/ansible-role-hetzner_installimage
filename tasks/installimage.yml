@@ -1,10 +1,9 @@
 ---
-
 - name: copy public key into tempfile
-  shell: /usr/bin/tail -1 /root/.ssh/authorized_keys > tmpKey
+  ansible.builtin.shell: /usr/bin/tail -1 /root/.ssh/authorized_keys > tmpKey
 
 - name: copy autosetup configuration file
-  template:
+  ansible.builtin.template:
     src: installimage.j2
     dest: /autosetup
     owner: root
@@ -12,22 +11,22 @@
     mode: 0644
 
 - name: run installimage
-  command: /root/.oldroot/nfs/install/installimage -K /root/tmpKey
+  ansible.builtin.command: /root/.oldroot/nfs/install/installimage -K /root/tmpKey
   environment:
     TERM: xterm-256color
   register: result
 
 - name: do reboot host
-  reboot:
+  ansible.builtin.reboot:
     post_reboot_delay: 15
     connect_timeout: 60
 
 - name: remove server from local known_hosts file
-  local_action: shell ssh-keygen -R {{ ansible_default_ipv4.address }}
+  ansible.builtin.local_action: ansible.builtin.shell ssh-keygen -R {{ ansible_default_ipv4.address }}
   when: hetzner_installimage_purge_ssh_known_hosts
 
 - name: update apt
-  raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get update'
+  ansible.builtin.raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get update'
   retries: 3
   delay: 10
   register: result
@@ -37,7 +36,7 @@
   when: ansible_os_family == 'Debian'
 
 - name: install python3 on remote host
-  raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get install python3 -y'
+  ansible.builtin.raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get install python3 -y'
   retries: 3
   delay: 10
   register: result
@@ -47,7 +46,7 @@
   when: ansible_os_family == 'Debian'
 
 - name: upgrade apt
-  raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get upgrade -y'
+  ansible.builtin.raw: 'export DEBIAN_FRONTEND=noninteractive && apt-get upgrade -y'
   retries: 3
   delay: 10
   register: result
@@ -57,34 +56,34 @@
   when: ansible_os_family == 'Debian'
 
 - name: update grub config
-  replace:
+  ansible.builtin.replace:
     path: /etc/default/grub
     regexp: '^GRUB_CMDLINE_LINUX="(.*)"'
     replace: 'GRUB_CMDLINE_LINUX="\1 biosdevname=0 net.ifnames=0"'
   when: ansible_os_family == 'Debian'
 
 - name: update grub
-  raw: update-grub
+  ansible.builtin.raw: update-grub
   args:
     executable: /bin/bash
   when: ansible_os_family == 'Debian'
 
 - name: find netplan config
-  find:
+  ansible.builtin.find:
     paths: '/etc/netplan'
     depth: 1
   register: find_result
   when: ansible_os_family == 'Debian'
 
 - name: check current name network interface
-  shell: 'ip addr show | grep "^2" | sed -r "s/^2:\s+(.+):.+$/\1/"'
+  ansible.builtin.shell: 'ip addr show | grep "^2" | sed -r "s/^2:\s+(.+):.+$/\1/"'
   args:
     executable: /bin/bash
   register: netplan_interface
   when: ansible_os_family == 'Debian'
 
 - name: fix netplan config
-  replace:
+  ansible.builtin.replace:
     path: "{{ item.path }}"
     regexp: "{{ netplan_interface.stdout | replace('\n', '') | replace('\r', '') }}"
     replace: "{{ hetzner_installimage_install_netplan_iface }}"
@@ -92,7 +91,7 @@
   when: ansible_os_family == 'Debian'
 
 - name: install python on remote host
-  raw: yum install python -y
+  ansible.builtin.raw: yum install python -y
   retries: 3
   delay: 10
   register: result
@@ -100,21 +99,20 @@
   when: ansible_os_family == 'RedHat'
 
 - name: update yum
-  raw: yum update -y
+  ansible.builtin.raw: yum update -y
   retries: 3
   delay: 10
   register: result
   until: result.rc == 0
   when: ansible_os_family == 'RedHat'
 
-
 - name: Update ansible fqdn fact
-  setup:
+  ansible.builtin.setup:
     filter:
       - 'ansible_fqdn'
 
 - name: create hostcode file
-  template:
+  ansible.builtin.template:
     src: hostcode.j2
     dest: /etc/hostcode
     owner: root
@@ -122,13 +120,13 @@
     mode: 0644
 
 - name: do final reboot host
-  reboot:
+  ansible.builtin.reboot:
     post_reboot_delay: 15
     connect_timeout: 60
 
 - name: "set the server_name equal {{ hetzner_server_name }}"
-  local_action:
-    module: uri
+  ansible.builtin.local_action:
+    module: ansible.builtin.uri
     url: "https://robot-ws.your-server.de/server/{{ ansible_default_ipv4.address }}"
     method: POST
     user: "{{ hetzner_installimage_webservice_username }}"
@@ -139,8 +137,8 @@
   when: hetzner_server_name is defined
 
 - name: "set PTR record equal {{ hetzner_server_name }}"
-  local_action:
-    module: uri
+  ansible.builtin.local_action:
+    module: ansible.builtin.uri
     url: "https://robot-ws.your-server.de/rdns/{{ ansible_default_ipv4.address }}"
     method: POST
     user: "{{ hetzner_installimage_webservice_username }}"
@@ -151,5 +149,3 @@
       - 200
       - 201
   when: hetzner_server_name is defined
-
-...

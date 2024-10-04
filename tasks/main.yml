@@ -1,27 +1,27 @@
 ---
-
 - name: check existence of /etc/hostcode
-  stat:
+  ansible.builtin.stat:
     path: /etc/hostcode
   register: hetzner_installimage_hostcode
   when: not hetzner_installimage_ignore_hostcode == True
 
-- name:
-  set_fact: hetzner_installimage_run=False
+- name: set fact hetzner_installimage_run to False
+  ansible.builtin.set_fact:
+    hetzner_installimage_run: False
   when: (hetzner_installimage_ignore_hostcode is not defined or not hetzner_installimage_ignore_hostcode == True) and (hetzner_installimage_hostcode is defined and hetzner_installimage_hostcode.stat.exists == True)
 
-- name:
-  set_fact: hetzner_installimage_run=True
+- name: set fact hetzner_installimage_run to True
+  ansible.builtin.set_fact:
+    hetzner_installimage_run: True
   when: hetzner_installimage_ignore_hostcode == True or (hetzner_installimage_hostcode is defined and hetzner_installimage_hostcode.stat.exists == False)
 
-- name: fail tasks if hetzner_installimage run == False
-  fail:
-    msg: "File /etc/hostcode exists on host {{ansible_default_ipv4.address}}"
+- name: fail tasks if hetzner_installimage_run is False
+  ansible.builtin.fail:
+    msg: "File /etc/hostcode exists on host {{ ansible_default_ipv4.address }}"
   when: not hetzner_installimage_run
 
 - name: check the current rescue mode state
-  local_action:
-    module: uri
+  ansible.builtin.uri:
     url: "https://robot-ws.your-server.de/boot/{{ ansible_default_ipv4.address }}/rescue"
     method: GET
     user: "{{ hetzner_installimage_webservice_username }}"
@@ -32,11 +32,9 @@
   when: hetzner_installimage_run
 
 - name: include rescue mode
-  include: rescuemode.yml
+  ansible.builtin.include_tasks: rescuemode.yml
   when: hetzner_installimage_run and not ansible_check_mode
 
 - name: include installimage
-  include: installimage.yml
+  ansible.builtin.include_tasks: installimage.yml
   when: hetzner_installimage_run and not ansible_check_mode
-
-...
