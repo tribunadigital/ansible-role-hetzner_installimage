@@ -22,7 +22,9 @@
     connect_timeout: 60
 
 - name: remove server from local known_hosts file
-  ansible.builtin.local_action: ansible.builtin.shell ssh-keygen -R {{ ansible_default_ipv4.address }}
+  ansible.builtin.shell:
+    cmd: ssh-keygen -R {{ ansible_default_ipv4.address }}
+  delegate_to: 127.0.0.1
   when: hetzner_installimage_purge_ssh_known_hosts
 
 - name: update apt
@@ -125,8 +127,7 @@
     connect_timeout: 60
 
 - name: "set the server_name equal {{ hetzner_server_name }}"
-  ansible.builtin.local_action:
-    module: ansible.builtin.uri
+  ansible.builtin.uri:
     url: "https://robot-ws.your-server.de/server/{{ ansible_default_ipv4.address }}"
     method: POST
     user: "{{ hetzner_installimage_webservice_username }}"
@@ -134,11 +135,11 @@
     force_basic_auth: yes
     body: "server_name={{ hetzner_server_name }}"
     status_code: 200
+  delegate_to: 127.0.0.1
   when: hetzner_server_name is defined
 
 - name: "set PTR record equal {{ hetzner_server_name }}"
-  ansible.builtin.local_action:
-    module: ansible.builtin.uri
+  ansible.builtin.uri:
     url: "https://robot-ws.your-server.de/rdns/{{ ansible_default_ipv4.address }}"
     method: POST
     user: "{{ hetzner_installimage_webservice_username }}"
@@ -148,4 +149,5 @@
     status_code:
       - 200
       - 201
+  delegate_to: 127.0.0.1
   when: hetzner_server_name is defined
